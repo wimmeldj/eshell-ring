@@ -136,7 +136,7 @@ KEY. Updates ring."
   "Switches current buffer to the eshell buffer corresponding to
 KEY. If one does not exits, creates it and switches just the
 same."
-  (interactive (list (completing-read "Eshell Buffer: "
+  (interactive (list (ido-completing-read "Eshell Buffer: "
                                       (mapcar #'car (ring-elements eshring/ring))
                                       nil nil nil nil (car (eshring/get-tail)) t)))
   (when (eq (type-of key) 'string)
@@ -149,7 +149,7 @@ same."
 KEY on `eshring/ring' and removes it from the ring. If KEY is
 nil, kills the buffer found at tail of `eshring/ring' (most
 recently used eshell buffer)."
-  (interactive (list (completing-read "Kill Eshell Buffer: "
+  (interactive (list (ido-completing-read "Kill Eshell Buffer: "
                                       (mapcar #'car (ring-elements eshring/ring))
                                       nil nil nil nil (car (eshring/get-tail)) t)))
 
@@ -253,18 +253,25 @@ traversing them as a list."
 ;;;; advice
 
 ;; meant to keep `eshring/ring' current regardless of how we get to a particular eshell buffer
-(defadvice switch-to-buffer (after check-for-eshell-mode-stb activate)
+(defadvice switch-to-buffer (after eshring/stb activate)
   "Check if a buffer switched to is an eshell buffer so that
 `eshring/ring' stays syncronized"
   (eshring/make-most-recent))
-(defadvice switch-to-buffer-other-frame (after check-for-eshell-mode-swbof activate)
+(defadvice switch-to-buffer-other-frame (after eshring/swbof activate)
   "Check if a buffer switched to is an eshell buffer so that
 `eshring/ring' stays syncronized"
   (eshring/make-most-recent))
-(defadvice switch-to-buffer-other-window (after check-for-eshell-mode-stbow activate)
+(defadvice switch-to-buffer-other-window (after eshring/stbow activate)
   "Check if a buffer switched to is an eshell buffer so that
 `eshring/ring' stays syncronized"
   (eshring/make-most-recent))
+(defadvice eshell-life-is-too-much (before eshring/life-is-too-much activate)
+  "If `eshell-kill-on-exit' is non-nil, will remove the current
+  buffer from `eshehll/ring'"
+  (when (and eshell-kill-on-exit
+             (eq (current-buffer)
+                 (cdr (eshring/get-tail))))
+    (ring-remove eshring/ring 0)))
 
 
 
