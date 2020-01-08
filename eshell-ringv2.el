@@ -136,7 +136,7 @@ KEY. Updates ring."
   "Switches current buffer to the eshell buffer corresponding to
 KEY. If one does not exits, creates it and switches just the
 same."
-  (interactive (list (ido-completing-read "Eshell Buffer: "
+  (interactive (list (completing-read "Eshell Buffer: "
                                       (mapcar #'car (ring-elements eshring/ring))
                                       nil nil nil nil (car (eshring/get-tail)) t)))
   (when (eq (type-of key) 'string)
@@ -149,7 +149,7 @@ same."
 KEY on `eshring/ring' and removes it from the ring. If KEY is
 nil, kills the buffer found at tail of `eshring/ring' (most
 recently used eshell buffer)."
-  (interactive (list (ido-completing-read "Kill Eshell Buffer: "
+  (interactive (list (completing-read "Kill Eshell Buffer: "
                                       (mapcar #'car (ring-elements eshring/ring))
                                       nil nil nil nil (car (eshring/get-tail)) t)))
 
@@ -160,8 +160,8 @@ recently used eshell buffer)."
            (idx (eshring/ring-member key)))
       (when (and memb buff idx)
         (message "eshring killing buffer %s with name %s" buff (car memb))
-        (ring-remove eshring/ring idx)
-        (kill-buffer buff))))
+        (when (kill-buffer buff)
+          (ring-remove eshring/ring idx)))))
 
 (defun eshring/killall (&optional something)
   "Kills all eshell buffers on `eshring/ring' and resets the
