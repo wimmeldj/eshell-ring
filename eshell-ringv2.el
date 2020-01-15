@@ -115,11 +115,11 @@ to KEY"
   "Return member of `eshring/ring' where BUFFER is `eq' to the
 member's eshell buffer."
   (let ((idx (catch 'found
-             (dotimes (i (ring-length eshring/ring))
-               (when (eq buffer (cdr (ring-ref eshring/ring i)))
-                 (throw 'found i))))))
-       (when idx
-         (ring-ref eshring/ring idx))))
+               (dotimes (i (ring-length eshring/ring))
+                 (when (eq buffer (cdr (ring-ref eshring/ring i)))
+                   (throw 'found i))))))
+    (when idx
+      (ring-ref eshring/ring idx))))
 
 (eshring/get-by-buffer "#<buffer *eshell*<17>>")
 
@@ -153,15 +153,15 @@ recently used eshell buffer)."
                                       (mapcar #'car (ring-elements eshring/ring))
                                       nil nil nil nil (car (eshring/get-tail)) t)))
 
-    (or key (setq key (car (eshring/get-tail)))) ;for non-interactive calls
+  (or key (setq key (car (eshring/get-tail)))) ;for non-interactive calls
 
-    (let* ((memb (eshring/get key))
-           (buff (cdr memb))
-           (idx (eshring/ring-member key)))
-      (when (and memb buff idx)
-        (message "eshring killing buffer %s with name %s" buff (car memb))
-        (when (kill-buffer buff)
-          (ring-remove eshring/ring idx)))))
+  (let* ((memb (eshring/get key))
+         (buff (cdr memb))
+         (idx (eshring/ring-member key)))
+    (when (and memb buff idx)
+      (message "eshring killing buffer %s with name %s" buff (car memb))
+      (when (kill-buffer buff)
+        (ring-remove eshring/ring idx)))))
 
 (defun eshring/killall (&optional something)
   "Kills all eshell buffers on `eshring/ring' and resets the
@@ -181,7 +181,7 @@ ring."
   (with-current-buffer (current-buffer)
     (when (and (equal major-mode 'eshell-mode)
                (buffer-live-p (current-buffer)))
-(ring-remove+insert+extend eshring/ring
+      (ring-remove+insert+extend eshring/ring
                                  (eshring/get-by-buffer (current-buffer)) t))))
 
 (defun eshring/traverse (direction ring-members)
@@ -199,16 +199,22 @@ changes each time the current buffer is switched."
   (assert (or (eq 'next direction) (eq 'prev direction))) ;no sideways
   (lexical-let* ((ring-members ring-members) ;so it can be referenced by the closure
                  (n (mod (if (eq 'next direction) 1 -1)
-                         (length ring-members))))
-    (switch-to-buffer (cdr (elt ring-members n))) ;initial switch on first call
+                         (length ring-members)))
+                 (memb (elt ring-members n))
+                 (buff (cdr memb))
+                 (old (current-buffer)))
+    (switch-to-buffer buff) ;initial switch on first call
+    (bury-buffer old)
     (lambda (direction)
       (assert (or (eq 'next direction) (eq 'prev direction)))
       (setq n (mod (+ n (if (eq 'next direction) 1 -1))
-                   (length ring-members)))
-      (let* ((memb (elt ring-members n))
-             (buff (cdr memb)))
-        (switch-to-buffer buff)
-        (message "%S" memb)))))
+                   (length ring-members))
+            old (current-buffer)
+            memb (elt ring-members n)
+            buff (cdr memb))
+      (switch-to-buffer buff)
+      (bury-buffer old)
+      (message "%S" memb))))
 
 (defun eshring/update-ring-with-selection (ring-members)
   "Called after the transient map returned by `eshring/next-prev' is
@@ -242,10 +248,10 @@ traversing them as a list."
 ;; improve or remove this
 (defun eshring/visualize-ring ()
   (interactive)
-   (princ (mapcar (lambda (x) (if (numberp (car x))
-                      (format "%d" (car x))
-                    (car x)))
-           (ring-elements eshring/ring))))
+  (princ (mapcar (lambda (x) (if (numberp (car x))
+                            (format "%d" (car x))
+                          (car x)))
+                 (ring-elements eshring/ring))))
 
 
 
