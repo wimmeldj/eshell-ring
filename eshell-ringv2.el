@@ -18,6 +18,7 @@
 (require 'cl)
 (require 'ring)
 (require 'eshell)                       ;for its mode map
+(require 'ibuffer)
 
 
 ;;;; =======================================================================
@@ -184,6 +185,11 @@ ring."
       (ring-remove+insert+extend eshring/ring
                                  (eshring/get-by-buffer (current-buffer)) t))))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;todo re-write so it just returns a closure. THen handle calling it once, then remainder times ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defun eshring/traverse (direction ring-members)
   "Traverses eshell buffers stored in `eshring/ring' by switching
 the current buffer to one either preceding or following the
@@ -209,9 +215,9 @@ changes each time the current buffer is switched."
       (assert (or (eq 'next direction) (eq 'prev direction)))
       (setq n (mod (+ n (if (eq 'next direction) 1 -1))
                    (length ring-members))
-            old (current-buffer)
             memb (elt ring-members n)
-            buff (cdr memb))
+            buff (cdr memb)
+            old (current-buffer))
       (switch-to-buffer buff)
       (bury-buffer old)
       (message "%S" memb))))
@@ -279,6 +285,25 @@ traversing them as a list."
                  (cdr (eshring/get-tail))))
     (ring-remove eshring/ring 0)))
 
+
+;;;; =======================================================================
+;;;; function redefinitions
+
+(define-ibuffer-op ibuffer-do-kill-on-deletion-marks ()
+  "Redefines that found in `ibuffer' to handle popping eshell
+  buffers from `eshring/ring' as well as killing normal buffers"
+  (:opstring "killed"
+   :active-opstring "kill"
+   :dangerous t
+   :complex t
+   :mark :deletion
+   :modifier-p t)
+  (with-current-buffer buf
+    (if (equal major-mode 'eshell-mode)
+        (let* ((memb (eshring/get-by-buffer buf))
+               (key (car memb)))
+          (eshring/kill key))
+      (kill-buffer buf))))
 
 
 ;;;; =======================================================================
