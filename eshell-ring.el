@@ -209,21 +209,21 @@ purpose of RING-MEMBERS is to provide the illusion of
       (bury-buffer old)
       (message "%S" memb))))
 
-(defun eshring/next-prev (&optional x)
+(defun eshring/next-prev ()
   "Switch between eshell buffers stored in `eshring/ring' by
 traversing them as a list. Updates state of ring when done
 traversing."
-  (interactive "p")
+  (interactive)
   (let* ((base (event-basic-type last-command-event))
-                 (direction (cond ((eq ?n base) 'next)
-                                  ((eq ?p base) 'prev)))
-                 (ring-members (ring-elements eshring/ring))
-                 (move (eshring/traverse))) ;alias closure
+         (direction (cond ((eq ?n base) 'next)
+                          ((eq ?p base) 'prev)))
+         (ring-members (ring-elements eshring/ring))
+         (move (eshring/traverse)))       ;alias closure
     (funcall move direction ring-members) ;initial move
     (message "Use C-n, C-p for ring traversal")
     (set-transient-map (let ((map (make-sparse-keymap)))
-                         (define-key map (kbd "C-n") #'(lambda (x) (interactive "p") (funcall move 'next ring-members)))
-                         (define-key map (kbd "C-p") #'(lambda (x) (interactive "p") (funcall move 'prev ring-members)))
+                         (define-key map (kbd "C-n") #'(lambda () (interactive) (funcall move 'next ring-members)))
+                         (define-key map (kbd "C-p") #'(lambda () (interactive) (funcall move 'prev ring-members)))
                          map)
                        t
                        #'(lambda () (eshring/overwrite-ring ring-members)))))
