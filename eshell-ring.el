@@ -1,3 +1,5 @@
+;;; eshell-ring.el --- Organize eshell buffers on a ring
+
 ;;; USAGE
 ;; 
 ;; Byte compile the file
@@ -52,9 +54,9 @@
 
 ;;;; the eshell ring data structure
 (defvar eshring/ring (make-ring 1)
-  "Used to store cons cells. `car' of each cell is either an
-alias for an eshell buffer or a number assigned to the buffer on
-creation. `cdr' is the eshell buffer itself.")
+  "Stores cons cells (string . buffer). `car' of each cell is
+either an alias for an eshell buffer or a number assigned to the
+buffer on creation. `cdr' is the eshell buffer itself.")
 
 
 (defun eshring/generate-eshell-buffer ()
@@ -84,12 +86,6 @@ new buffer will be uniquely keyed by `eshring/session-number'"
         (rename-buffer (format "*eshell<%s>*" (car item))))
       (ring-insert+extend eshring/ring item t))))
 
-(defun eshring/create-unnamed ()
-  "Create an unnamed eshell buffer and store it on `eshring/ring'
-with an alias given by `eshring/session-number'"
-  (interactive)
-  (eshring/new))
-
 (defun eshring/get-tail ()
   "Returns tail item (most recently used) on `eshring/ring'.
  E.g. (1 . #<buffer *eshell*<1>) or
@@ -113,7 +109,7 @@ to KEY"
     memb))
 
 (defun eshring/get-by-buffer (buffer)
-  "Return member of `eshring/ring' where BUFFER is `eq' to the
+  "Evals to member of `eshring/ring' where BUFFER is `eq' to the
 member's eshell buffer."
   (let ((idx (catch 'found
                (dotimes (i (ring-length eshring/ring))
@@ -121,8 +117,6 @@ member's eshell buffer."
                    (throw 'found i))))))
     (when idx
       (ring-ref eshring/ring idx))))
-
-(eshring/get-by-buffer "#<buffer *eshell*<17>>")
 
 (defun eshring/goto (key)
   "Switches current buffer to the eshell buffer corresponding to
@@ -133,9 +127,33 @@ KEY. Updates ring."
       (pop-to-buffer-same-window (cdr memb)))
     memb))
 
+(defun eshring/make-most-recent ()
+  "Makes current buffer the most recently used one in
+`eshring/ring'. Current buffer must be present in the ring."
+  (with-current-buffer (current-buffer)
+    (when (and (equal major-mode 'eshell-mode)
+               (buffer-live-p (current-buffer)))
+      (ring-remove+insert+extend eshring/ring
+                                 (eshring/get-by-buffer (current-buffer)) t))))
+
+(defun eshring/overwrite-ring (ring-members)
+  "Overwrites `eshring/ring' with elements in ring-members"
+  (setq eshring/ring (make-ring 1))
+  (dolist (memb (reverse ring-members))
+    (ring-insert+extend eshring/ring memb t))
+  (eshring/make-most-recent))
+
+
+
+(defun eshring/create-unnamed ()
+  "Create an unnamed eshell buffer and store it on `eshring/ring'
+with an alias given by `eshring/session-number'"
+  (interactive)
+  (eshring/new))
+
 (defun eshring/find (&optional key)
   "Switches current buffer to the eshell buffer corresponding to
-KEY. If one does not exits, creates it and switches just the
+KEY. If one does not exist, creates it and switches just the
 same."
   (interactive (list (completing-read "Eshell Buffer: "
                                       (mapcar #'car (ring-elements eshring/ring))
@@ -147,14 +165,14 @@ same."
 
 (defun eshring/kill (&optional key)
   "If KEY is non-nil, kills the eshell buffer corresponding to
-KEY on `eshring/ring' and removes it from the ring. If KEY is
-nil, kills the buffer found at tail of `eshring/ring' (most
-recently used eshell buffer)."
+KEY on `eshring/ring' and removes it from the ring. Otherwise,
+kills the buffer found at tail of `eshring/ring' (most recently
+used eshell buffer)."
   (interactive (list (completing-read "Kill Eshell Buffer: "
                                       (mapcar #'car (ring-elements eshring/ring))
                                       nil nil nil nil (car (eshring/get-tail)) t)))
 
-  (or key (setq key (car (eshring/get-tail)))) ;for non-interactive calls
+  (unless key (setq key (car (eshring/get-tail)))) ;for non-interactive calls
 
   (let* ((memb (eshring/get key))
          (buff (cdr memb))
@@ -164,11 +182,11 @@ recently used eshell buffer)."
       (when (kill-buffer buff)
         (ring-remove eshring/ring idx)))))
 
-(defun eshring/killall (&optional something)
+(defun eshring/killall ()
   "Kills all eshell buffers on `eshring/ring' and resets the
 ring."
   (interactive "p")
-  (when (not (ring-empty-p eshring/ring))
+  (unless (ring-empty-p eshring/ring)
     (message "eshring killing all buffers on ring.")
     (dotimes (i (ring-length eshring/ring) nil)
       (let* ((memb (ring-ref eshring/ring i))
@@ -176,80 +194,43 @@ ring."
         (kill-buffer buff)))
     (setq eshring/ring (make-ring 1))))
 
-(defun eshring/make-most-recent ()
-  "Makes current buffer the most recently used one in
-`eshring/ring'. Current buffer must be present in the ring."
-  (with-current-buffer (current-buffer)
-    (when (and (equal major-mode 'eshell-mode)
-               (buffer-live-p (current-buffer)))
-      (ring-remove+insert+extend eshring/ring
-                                 (eshring/get-by-buffer (current-buffer)) t))))
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;todo re-write so it just returns a closure. THen handle calling it once, then remainder times ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun eshring/traverse (direction ring-members)
-  "Traverses eshell buffers stored in `eshring/ring' by switching
-the current buffer to one either preceding or following the
-tail. Returns a closure to keep the state of the current buffer
-in the traversal.
-
-DIRECTION is a symbol of either 'next or 'prev indicating initial
-traversal direction.
-
-RING-MEMBERS is a list of elements in `eshring/ring' that will be
-traversed. This is used because the state of `eshring/ring'
-changes each time the current buffer is switched."
-  (assert (or (eq 'next direction) (eq 'prev direction))) ;no sideways
-  (lexical-let* ((ring-members ring-members) ;so it can be referenced by the closure
-                 (n (mod (if (eq 'next direction) 1 -1)
-                         (length ring-members)))
-                 (memb (elt ring-members n))
-                 (buff (cdr memb))
-                 (old (current-buffer)))
-    (switch-to-buffer buff) ;initial switch on first call
-    (bury-buffer old)
-    (lambda (direction)
-      (assert (or (eq 'next direction) (eq 'prev direction)))
+(defun eshring/traverse ()
+  "Evals to closure expecting a DIRECTION symbol of form 'next or
+'prev and a list of elements to traverse, RING-MEMBERS. The
+purpose of RING-MEMBERS is to provide the illusion of
+`eshring/ring' being temporarily static while it's traversed."
+  (lexical-let ((n 0) memb buff old)
+    (lambda (direction ring-members)
       (setq n (mod (+ n (if (eq 'next direction) 1 -1))
                    (length ring-members))
             memb (elt ring-members n)
             buff (cdr memb)
             old (current-buffer))
+      
       (switch-to-buffer buff)
       (bury-buffer old)
       (message "%S" memb))))
 
-(defun eshring/update-ring-with-selection (ring-members)
-  "Called after the transient map returned by `eshring/next-prev' is
-deactivated. Used to revert all changes to `eshring/ring' except
-the final buffer selected which will now be at the tail. This has
-the effect of collecting the buffers being switched between at
-the tail of the ring, which is obviously desirable as it means
-less switching back and forth between the buffers being used."
-  (setq eshring/ring (make-ring 1))
-  (dolist (memb (reverse ring-members))
-    (ring-insert+extend eshring/ring memb t))
-  (eshring/make-most-recent))
-
-(defun eshring/next-prev (inc)
+(defun eshring/next-prev (x)
   "Switch between eshell buffers stored in `eshring/ring' by
-traversing them as a list."
+traversing them as a list. Updates state of ring when done
+traversing."
   (interactive "p")
   (lexical-let* ((base (event-basic-type last-command-event))
                  (direction (cond ((eq ?n base) 'next)
                                   ((eq ?p base) 'prev)))
                  (ring-members (ring-elements eshring/ring))
-                 (f (eshring/traverse direction ring-members))) ;make first move and alias closure
+                 (move (eshring/traverse))) ;alias closure
+    (funcall move direction ring-members) ;initial move
     (message "Use C-n, C-p for ring traversal")
     (set-transient-map (let ((map (make-sparse-keymap)))
-                         (define-key map (kbd "C-n") #'(lambda (inc) (interactive "p") (funcall f 'next)))
-                         (define-key map (kbd "C-p") #'(lambda (inc) (interactive "p") (funcall f 'prev)))
+                         (define-key map (kbd "C-n") #'(lambda (x) (interactive "p") (funcall move 'next ring-members)))
+                         (define-key map (kbd "C-p") #'(lambda (x) (interactive "p") (funcall move 'prev ring-members)))
                          map)
                        t
-                       #'(lambda () (eshring/update-ring-with-selection ring-members)))))
+                       #'(lambda () (eshring/overwrite-ring ring-members)))))
+
 
 ;; improve or remove this
 (defun eshring/visualize-ring ()
@@ -258,7 +239,6 @@ traversing them as a list."
                             (format "%d" (car x))
                           (car x)))
                  (ring-elements eshring/ring))))
-
 
 
 ;;;; =======================================================================
@@ -324,6 +304,7 @@ traversing them as a list."
 
           ;; superior map definitions
           (define-key sup-map (kbd "C-x k") #'eshring/kill)
+          (define-key sub-map (kbd "C-x K") #'eshring/killall)
 
           ;; inferior map definitions
           (define-key inf-map (kbd "C-n") #'eshring/next-prev)
