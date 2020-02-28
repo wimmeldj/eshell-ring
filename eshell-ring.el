@@ -1,4 +1,4 @@
-;;; eshell-ring.el --- Organize eshell buffers on a ring
+;;; eshell-ring.el --- Organize eshell buffers on a ring -*- lexical-binding: t; -*-
 
 ;;; USAGE
 ;; 
@@ -49,7 +49,7 @@
 
 ;;;; starts at 1 and always increases. Like tmux.
 (defvar eshring/session-number
-  (lexical-let ((i 0))
+  (let ((i 0))
     (lambda () (incf i))))
 
 ;;;; the eshell ring data structure
@@ -185,13 +185,11 @@ used eshell buffer)."
 (defun eshring/killall ()
   "Kills all eshell buffers on `eshring/ring' and resets the
 ring."
-  (interactive "p")
+  (interactive)
   (unless (ring-empty-p eshring/ring)
     (message "eshring killing all buffers on ring.")
-    (dotimes (i (ring-length eshring/ring) nil)
-      (let* ((memb (ring-ref eshring/ring i))
-             (buff (cdr memb)))
-        (kill-buffer buff)))
+    (mapc #'(lambda (memb) (kill-buffer (cdr memb)))
+            (ring-elements eshring/ring))
     (setq eshring/ring (make-ring 1))))
 
 
@@ -200,24 +198,23 @@ ring."
 'prev and a list of elements to traverse, RING-MEMBERS. The
 purpose of RING-MEMBERS is to provide the illusion of
 `eshring/ring' being temporarily static while it's traversed."
-  (lexical-let ((n 0) memb buff old)
+  (let ((n 0) memb buff old)
     (lambda (direction ring-members)
       (setq n (mod (+ n (if (eq 'next direction) 1 -1))
                    (length ring-members))
             memb (elt ring-members n)
             buff (cdr memb)
             old (current-buffer))
-      
       (switch-to-buffer buff)
       (bury-buffer old)
       (message "%S" memb))))
 
-(defun eshring/next-prev (x)
+(defun eshring/next-prev (&optional x)
   "Switch between eshell buffers stored in `eshring/ring' by
 traversing them as a list. Updates state of ring when done
 traversing."
   (interactive "p")
-  (lexical-let* ((base (event-basic-type last-command-event))
+  (let* ((base (event-basic-type last-command-event))
                  (direction (cond ((eq ?n base) 'next)
                                   ((eq ?p base) 'prev)))
                  (ring-members (ring-elements eshring/ring))
@@ -304,7 +301,6 @@ traversing."
 
           ;; superior map definitions
           (define-key sup-map (kbd "C-x k") #'eshring/kill)
-          (define-key sub-map (kbd "C-x K") #'eshring/killall)
 
           ;; inferior map definitions
           (define-key inf-map (kbd "C-n") #'eshring/next-prev)
