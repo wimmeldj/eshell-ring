@@ -364,4 +364,4 @@ is `eshell-mode' or `shell-mode'."
 (define-globalized-minor-mode global-eshring-mode
   eshring-mode turn-on-eshring-mode)
 
-(provide 'eshring)
+(provide 'eshell-ring)
