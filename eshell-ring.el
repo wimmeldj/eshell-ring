@@ -215,10 +215,12 @@ used buffer)."
   (let* ((memb (eshring/get key))
          (buff (cdr memb))
          (idx (eshring/ring-member key)))
-    (when (and memb buff idx)
-      (message "eshring killing buffer %s with name %s" buff (car memb))
-      (when (kill-buffer buff)
-        (ring-remove eshring/ring idx)))))
+    (if (and memb buff idx)
+	(progn
+	  (message "eshring killing buffer %s with name %s" buff (car memb))
+	  (when (kill-buffer buff)
+	    (ring-remove eshring/ring idx)))
+      (kill-buffer nil))))
 
 
 (defun eshring/killall ()
