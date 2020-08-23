@@ -19,9 +19,9 @@
 
 (require 'cl)
 (require 'ring)
-(require 'eshell)                       ;for its mode map
 (require 'ibuffer)
 
+(defvar eshell-mode-map nil) ;because now, requiring eshell does not include the mode-map
 
 ;;;; =======================================================================
 ;;;; Custom settings
@@ -203,7 +203,10 @@ same."
     (eshring/new-eshell key)))
 
 
-(defun eshring/kill (&optional key)
+;; not currently used due to issues arrising when using completing read on
+;; shell/eshell buffers not on a ring. Such as those spawned by
+;; `dired-do-async-shell-command'
+(defun eshring/kill-completing (&optional key)
   "If KEY is non-nil, kills the eshell buffer corresponding to
 KEY on `eshring/ring' and removes it from the ring. Otherwise,
 kills the buffer found at tail of `eshring/ring' (most recently
@@ -222,6 +225,25 @@ used buffer)."
 	    (ring-remove eshring/ring idx)))
       (kill-buffer nil))))
 
+(defun eshring/kill (&optional key)
+  (interactive)
+  (if key			 ;if called with no key, try kill current buffer
+      (let* ((memb (eshring/get key))
+	     (buff (cdr memb))
+	     (idx (eshring/ring-member key)))
+	(when (and memb buff idx)
+	  (message "eshring killing buffer %s with name %s" buff (car memb))
+	  (when (kill-buffer buff)
+	    (ring-remove eshring/ring idx))))
+    (let* ((buff (current-buffer))
+	   (memb (eshring/get-by-buffer buff))
+	   (idx 0)) ;; if memb is nil, the buff is not on the ring. Otherwise, it must be first elt
+      (if memb
+	  (progn
+	    (message "eshring killing buffer %s with name %s" buff (car memb))
+	    (when (kill-buffer buff)
+	      (ring-remove eshring/ring idx)))
+	(kill-buffer nil)))))
 
 (defun eshring/killall ()
   "Kills all eshell buffers on `eshring/ring' and resets the
