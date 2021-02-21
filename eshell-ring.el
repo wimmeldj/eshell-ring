@@ -17,6 +17,7 @@
 ;; (global-eshring-mode 1)
 
 
+(require 's)
 (require 'cl)
 (require 'ring)
 (require 'ibuffer)
