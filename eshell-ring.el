@@ -1,10 +1,17 @@
 ;;; eshell-ring.el --- Organize eshell buffers on a ring -*- lexical-binding: t; -*-
 
+;; this should be re-written. Should work with emacs tabs feature in 27.1
+;; also, keymap is bad. Fix the requirement of defining a prefix key.
+;;
+;; Also, instead of redefining buffer killing functions to also check if the buffer is on the shell
+;; ring, you should just switch shell ring buffers lazily. That is, if attempting to switch to a
+;; killed, buffer, discard that entry, goto the next one, repeat.
+
 ;;; USAGE
 ;; 
 ;; Byte compile the file
 ;; 
-;; (require 'eshring <path>)
+;; (require 'eshell-ring <path>)
 ;; 
 ;; Choose an eshring inferior map prefix key (where most of the
 ;; functionality is) if you don't like the default of C-b. This can
@@ -37,7 +44,7 @@
   :group 'eshring
   :type 'string)
 
-(defcustom eshring-inferior-map-prefix (kbd "C-b")
+(defcustom eshring-inferior-map-prefix (kbd "<M-f11>")
   "The prefix key for `eshring/mode' commands."
   :group 'eshring
   :type 'sexp
@@ -359,11 +366,11 @@ them as a list. Updates state of ring when done traversing."
           (define-key sup-map (kbd "C-x k") #'eshring/kill)
 
           ;; inferior map definitions
-          (define-key inf-map (kbd "C-n") #'eshring/next-prev)
-          (define-key inf-map (kbd "C-p") #'eshring/next-prev)
-          (define-key inf-map (kbd "C-f") #'eshring/find)
-          (define-key inf-map (kbd "C-<return>") #'eshring/create-unnamed-eshell)
-          (define-key inf-map (kbd "C-<backspace>") #'eshring/create-unnamed-shell)
+          (define-key inf-map (kbd "n") #'eshring/next-prev)
+          (define-key inf-map (kbd "p") #'eshring/next-prev)
+          (define-key inf-map (kbd "f") #'eshring/find)
+          (define-key inf-map (kbd "<return>") #'eshring/create-unnamed-eshell)
+          (define-key inf-map (kbd "<backspace>") #'eshring/create-unnamed-shell)
           sup-map)))
 
 
